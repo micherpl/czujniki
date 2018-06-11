@@ -2,6 +2,8 @@ package com.czujniki;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.yaml.snakeyaml.Yaml;
 
@@ -23,7 +25,6 @@ public class CzujnikiApplication {
     private static final String id = "id";
     private static final String value = "value";
     private static final String engine = "engine";
-    private static final String type = "type";
     private static final String master_sensor_id = "master-sensor-id";
     private static final String min_value = "min_value";
     private static final String max_value = "max_value";
@@ -52,7 +53,7 @@ public class CzujnikiApplication {
     }
 
     @RequestMapping(value = "/sensors/{sensorId}", method = RequestMethod.POST)
-    public void updateEngines(@PathVariable int sensorId, @RequestBody UpdateSensorModel updateSensorModel){
+    public ResponseEntity updateEngines(@PathVariable int sensorId, @RequestBody UpdateSensorModel updateSensorModel){
         System.out.println(sensorId+" "+updateSensorModel.getOperation()+" "+updateSensorModel.getValue());
         int valI = Integer.parseInt(updateSensorModel.getValue());
 
@@ -61,36 +62,44 @@ public class CzujnikiApplication {
                 if(updateSensorModel.getOperation().equals("set")){
                     if(isValueCorrect(valI, (Integer) param.get(min_value), (Integer) param.get(max_value))){
                         param.put(value, valI);
+                    } else {
+                        return new ResponseEntity(HttpStatus.BAD_REQUEST);
                     }
                 } else if(updateSensorModel.getOperation().equals("increment")){
                     System.out.println(param.get("value"));
                     valI = (Integer) param.get(value) + valI;
                     if(isValueCorrect(valI, (Integer) param.get(min_value), (Integer) param.get(max_value))){
                         param.put(value, valI);
+                    } else {
+                        return new ResponseEntity(HttpStatus.BAD_REQUEST);
                     }
                 } else if(updateSensorModel.getOperation().equals("decrement")){
-                    valI = valI - (Integer) param.get(value);
+                    valI = (Integer) param.get(value) - valI;
                     if(isValueCorrect(valI, (Integer) param.get(min_value), (Integer) param.get(max_value))){
                         param.put(value, valI);
+                    } else {
+                        return new ResponseEntity(HttpStatus.BAD_REQUEST);
                     }
                 }
             }
         }
+        return new ResponseEntity(HttpStatus.OK);
+    }
 
+    @RequestMapping(value = "/engine/{sensorId}", method = RequestMethod.GET)
+    public int getEngineValue(@PathVariable int sensorId){
+        for (LinkedHashMap<String,Object> param : sensorList) {
+            if (sensorId == Integer.parseInt(param.get(id).toString())) {
+                return (Integer) param.get(value);
+            }
+        }
+        return -1;
     }
 
     public static void main(String[] args) {
 
-        String url = "https://github.com/relayr/pdm-test/blob/master/sensors.yml";
-        if(url.contains(githubUrl)) url = url.replaceFirst(githubUrl, rawGithubUrl).replaceFirst(githubBlob, "");
-
-        Yaml yaml = new Yaml();
-        try (InputStream in = new URL(url).openStream()) {
-            sensorList = yaml.load(in);
-            System.out.println(sensorList);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        String url = args[0];
+        loadYaml(url);
 
         SpringApplication.run(CzujnikiApplication.class, args);
     }
@@ -100,6 +109,18 @@ public class CzujnikiApplication {
             return true;
         }
         return false;
+    }
+
+    private static void loadYaml(String url){
+        if(url.contains(githubUrl)) url = url.replaceFirst(githubUrl, rawGithubUrl).replaceFirst(githubBlob, "");
+
+        Yaml yaml = new Yaml();
+        try (InputStream in = new URL(url).openStream()) {
+            sensorList = yaml.load(in);
+            System.out.println(sensorList);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 

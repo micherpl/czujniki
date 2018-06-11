@@ -19,4 +19,9 @@ public class UpdateSensorModel {
     public void setValue(String value) {
         this.value = value;
     }
+
+    public UpdateSensorModel(String operation, String value) {
+        this.operation = operation;
+        this.value = value;
+    }
 }
